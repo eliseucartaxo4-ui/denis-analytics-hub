@@ -1,0 +1,386 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Денис Рябцев · Аналитический центр & Статистика</title>
+  <link rel="stylesheet" href="./style.css?v=2.0">
+</head>
+<body>
+  <!-- Top Navigation Header -->
+  <header class="top-nav">
+    <div class="nav-container">
+      <div class="brand-block">
+        <div class="avatar-badge">ДР</div>
+        <div class="brand-text">
+          <div class="brand-title-row">
+            <h1>Денис Рябцев</h1>
+            <span class="badge verified">Официальный хаб</span>
+            <span class="live-dot" title="Синхронизировано с базой данных"></span>
+          </div>
+          <div class="social-links-row">
+            <a href="https://t.me/den_ryaba" target="_blank" rel="noopener noreferrer" class="social-link-pill tg" title="Официальный Telegram Дениса Рябцева">
+              <span>✈️ Telegram: @den_ryaba ↗</span>
+            </a>
+            <a href="https://www.twitch.tv/denis_ryaba" target="_blank" rel="noopener noreferrer" class="social-link-pill twitch" title="Официальный Twitch Дениса Рябцева">
+              <span>🟣 Twitch: denis_ryaba ↗</span>
+            </a>
+          </div>
+          <p class="brand-subtitle">Центр сквозной аналитики по 33 аккаунтам, 5 категориям и платформам</p>
+        </div>
+      </div>
+
+      <div class="nav-actions">
+        <div class="sync-indicator" id="sync-status">
+          <span class="sync-dot"></span>
+          <span class="sync-label" id="sync-text">Синхронизировано</span>
+        </div>
+        <span id="observer-badge" class="badge hidden" style="background: rgba(56,189,248,0.15); color: #38bdf8; border: 1px solid rgba(56,189,248,0.3); font-size: 12px; padding: 4px 10px;">👁️ Режим наблюдателя</span>
+        <button class="btn btn-deficit-toggle" id="open-deficit-btn" onclick="scrollToDeficitWindow()" title="Баланс и нехватка аккаунтов по категориям">
+          <span>⚖️ Нехватка: <b id="header-deficit-badge">78</b></span>
+        </button>
+        <button class="btn btn-primary" id="share-btn" title="Получить публичную ссылку для наблюдателя">
+          <span>🔗 Поделиться</span>
+        </button>
+        <button class="btn btn-secondary" id="refresh-btn" title="Обновить статистику из базы">
+          <span class="btn-icon" id="refresh-icon">↻</span> Обновить
+        </button>
+        <button class="btn btn-secondary" id="export-btn" title="Выгрузить отчёт в формате JSON/CSV">
+          <span class="btn-icon">📥</span> Экспорт
+        </button>
+        <a href="http://127.0.0.1:5000/" target="_blank" class="btn btn-secondary" id="control-panel-link" title="Перейти в основную панель управления">
+          <span>Панель управления ↗</span>
+        </a>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Container -->
+  <main class="main-content">
+    <!-- Global Period Selector Control Bar -->
+    <div class="global-period-bar">
+      <div class="period-bar-left">
+        <span class="period-bar-icon">📅</span>
+        <div class="period-bar-info">
+          <div class="period-bar-title-row">
+            <span class="period-bar-title">Период статистики:</span>
+            <span class="period-badge-active" id="global-active-period-name">Всё время</span>
+          </div>
+          <span class="period-bar-desc">Переключает просмотры и выкладку роликов во всех блоках сайта</span>
+        </div>
+      </div>
+      <div class="period-toggle-group" id="global-period-selector">
+        <button class="period-btn" data-period="1d" title="Статистика за последние 24 часа / сегодня">
+          <span class="period-dot"></span> 1 день
+        </button>
+        <button class="period-btn" data-period="7d" title="Статистика за последние 7 дней">
+          <span class="period-dot"></span> 7 дней
+        </button>
+        <button class="period-btn" data-period="30d" title="Статистика за 1 месяц (30 дней)">
+          <span class="period-dot"></span> 1 месяц
+        </button>
+        <button class="period-btn active" data-period="all" title="Статистика за всё время работы">
+          <span class="period-dot"></span> Всё время
+        </button>
+      </div>
+    </div>
+
+    <!-- Executive KPI Grid -->
+    <section class="kpi-grid" id="kpi-container">
+      <!-- Injected via app.js -->
+      <div class="skeleton-card"></div>
+      <div class="skeleton-card"></div>
+      <div class="skeleton-card"></div>
+      <div class="skeleton-card"></div>
+    </section>
+
+    <!-- Urgent Stagnant Alert Banner (if any) -->
+    <div id="stagnant-alert-banner" class="alert-banner hidden">
+      <div class="alert-icon">⚠️</div>
+      <div class="alert-info">
+        <h4 id="stagnant-alert-title">Обнаружены стагнирующие аккаунты</h4>
+        <p id="stagnant-alert-desc">Часть аккаунтов не набирает просмотры или не публиковала контент более 7 дней.</p>
+      </div>
+      <button class="btn btn-warning small" id="show-stagnant-filter-btn">Показать только их (<span id="stagnant-btn-count">0</span>)</button>
+    </div>
+
+    <!-- Low Views Alert Banner (<= 50 views) -->
+    <div id="low-views-alert-banner" class="alert-banner alert-banner-warning hidden" style="border-left: 4px solid #f97316; background: rgba(249, 115, 22, 0.08); margin-bottom: 24px;">
+      <div class="alert-icon">📉</div>
+      <div class="alert-info">
+        <h4 id="low-views-alert-title" style="color: #fb923c;">Аккаунты не набирают просмотров (≤ 50 за всё время)</h4>
+        <p id="low-views-alert-desc">Обнаружено <span id="low-views-banner-count">0</span> аккаунтов с околонулевыми просмотрами за всё время. Рекомендуется повторный прогрев или замена.</p>
+      </div>
+      <button class="btn btn-warning small" id="show-low-views-filter-btn" style="background: rgba(249,115,22,0.2); color: #fb923c; border: 1px solid rgba(249,115,22,0.4);">Показать эти аккаунты (<span id="low-views-btn-count">0</span>)</button>
+    </div>
+
+    <!-- Archive Alert Banner (Отлетевшие / Низкие просмотры) -->
+    <div id="archive-alert-banner" class="alert-banner" style="border-left: 4px solid #64748b; background: rgba(100, 116, 139, 0.12); margin-bottom: 20px;">
+      <div class="alert-icon">📦</div>
+      <div class="alert-info">
+        <h4 style="color: #cbd5e1;">Архив аккаунтов (<span id="archive-banner-count">9</span> отлетели / не набирают просмотры)</h4>
+        <p style="color: #94a3b8;">Аккаунты с неактивными сессиями на платформах либо набравшие менее 50 просмотров за крайние видео.</p>
+      </div>
+      <button class="btn btn-secondary small" id="show-archive-filter-btn" style="background: rgba(100,116,139,0.25); color: #e2e8f0; border: 1px solid rgba(148,163,184,0.4);" onclick="setQuickFilter('archive')">
+        Показать архив (<span id="archive-btn-count">9</span>)
+      </button>
+    </div>
+
+    <!-- Dedicated Account Deficit & Category Balance Window -->
+    <section class="section-block deficit-section" id="deficit-window-section">
+      <div class="deficit-window-card">
+        <div class="deficit-header">
+          <div class="deficit-title-wrap">
+            <div class="deficit-tag-row">
+              <span class="section-tag deficit-badge-tag">⚖️ Аудит пула и сетки 90</span>
+              <span class="badge badge-norm">Норма сетки: 30 × 3 = 90 аккаунтов</span>
+            </div>
+            <h2>Баланс и нехватка аккаунтов по категориям</h2>
+            <p class="text-muted">Сколько аккаунтов в каждой категории, каких именно не хватает под рабочую сетку и сколько требуется для замены.</p>
+          </div>
+
+          <div class="deficit-controls">
+            <div class="mode-toggle-group" id="deficit-mode-selector">
+              <button class="mode-btn active" data-mode="c50" onclick="setDeficitMode('c50')" title="Учитывать каналы с > 100 просмотрами за последние 10 роликов">&gt; 100 просм. (последние 10)</button>
+              <button class="mode-btn" data-mode="c200" onclick="setDeficitMode('c200')" title="Строгий фильтр: от 200 до 1 000+ просмотров">≥ 200 просм. (~1 000)</button>
+              <button class="mode-btn" data-mode="auth" onclick="setDeficitMode('auth')" title="Только по факту живой сессии без блокировок">По авторизации</button>
+            </div>
+            <button class="btn btn-secondary small" onclick="copyDeficitSummaryList()" title="Скопировать список недостающих аккаунтов в буфер">📋 Скопировать список</button>
+          </div>
+        </div>
+
+        <!-- Deficit Summary Counters -->
+        <div class="deficit-kpi-bar" id="deficit-kpi-bar">
+          <!-- Injected via app.js -->
+        </div>
+
+        <!-- Category Breakdown Grid -->
+        <div class="deficit-cats-grid" id="deficit-cats-container">
+          <!-- Injected via app.js -->
+        </div>
+      </div>
+    </section>
+
+    <!-- Categories Performance Section -->
+    <section class="section-block" id="categories-section">
+      <div class="section-header wrap-mobile">
+        <div class="section-title-wrap">
+          <span class="section-tag">Категории контента</span>
+          <h2>Эффективность по 5 категориям</h2>
+          <span class="text-muted">Нажмите на карточку категории, чтобы открыть список её профилей и статус работы</span>
+        </div>
+
+        <!-- Period Selector Controls (1d / 7d / 30d / all) -->
+        <div class="period-switcher-wrap">
+          <span class="period-label">Период:</span>
+          <div class="period-toggle-group" id="categories-period-selector">
+            <button class="period-btn" data-period="1d" title="За последние 24 часа / сегодня">1 день</button>
+            <button class="period-btn" data-period="7d" title="За последние 7 дней">7 дней</button>
+            <button class="period-btn" data-period="30d" title="За 1 месяц">1 месяц</button>
+            <button class="period-btn active" data-period="all" title="За всё время">Всё время</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 6 Categories Grid -->
+      <div class="categories-grid" id="categories-container">
+        <!-- Injected via app.js -->
+      </div>
+
+      <!-- Selected Category Detail Panel & Profiles Grid -->
+      <div id="category-profiles-panel" class="category-profiles-panel hidden">
+        <div class="category-panel-header">
+          <div class="cat-panel-title-group">
+            <div class="cat-panel-title-row">
+              <span class="badge badge-accent" id="cat-panel-badge">Категория 1</span>
+              <h3 id="cat-panel-title">Мотивация под треки, прощание</h3>
+            </div>
+            <span class="cat-panel-meta" id="cat-panel-meta">Профилей: 2 · Просмотров: 3 930</span>
+          </div>
+          <div class="cat-panel-actions">
+            <span class="badge" id="cat-panel-period-badge" style="background: rgba(99,102,241,0.15); color: #a5b4fc; border: 1px solid rgba(99,102,241,0.3)">Период: Всё время</span>
+            <button class="btn btn-secondary small" id="close-cat-panel-btn" title="Скрыть профили">✕ Свернуть</button>
+          </div>
+        </div>
+
+        <div class="category-profiles-grid" id="category-profiles-grid">
+          <!-- Profile cards dynamically injected here -->
+        </div>
+      </div>
+    </section>
+
+    <!-- Full Accounts Directory Matrix -->
+    <section class="section-block">
+      <div class="section-header wrap-mobile">
+        <div class="section-title-wrap">
+          <span class="section-tag">Детальный реестр</span>
+          <h2>Статистика всех аккаунтов (<span id="filtered-count">33</span>)</h2>
+        </div>
+
+        <!-- Filter Controls Toolbar -->
+        <div class="toolbar">
+          <div class="search-box">
+            <span class="search-icon">🔍</span>
+            <input type="text" id="search-input" placeholder="Поиск по профилю, названию, логину..." />
+            <button id="clear-search-btn" class="clear-search hidden">✕</button>
+          </div>
+
+          <div class="view-toggle">
+            <button class="toggle-btn active" id="view-table-btn" title="Вид: таблица">☷ Таблица</button>
+            <button class="toggle-btn" id="view-cards-btn" title="Вид: карточки">▦ Сетка</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Quick Filter Pills -->
+      <div class="filter-pills" id="filter-pills-bar">
+        <button class="pill active" data-filter="all">Все (33)</button>
+        <button class="pill pill-working" data-filter="working">🟢 Работают (<span id="pill-working-count">24</span>)</button>
+        <button class="pill pill-archive" data-filter="archive">📦 В архиве / Отлетели (<span id="pill-archive-count">9</span>)</button>
+        <button class="pill pill-danger" data-filter="low-views" style="border-color: rgba(249,115,22,0.4); color: #fb923c;">📉 Не набирают ≤ 50 (<span id="pill-low-views-count">0</span>)</button>
+        <button class="pill pill-warning" data-filter="stagnant">⚠️ Не набирают > 7 дн (<span id="pill-stagnant-count">0</span>)</button>
+        <button class="pill pill-viral" data-filter="viral">🔥 Топовые по просмотрам</button>
+        <button class="pill" data-filter="cat-1">1. Мотивация</button>
+        <button class="pill" data-filter="cat-3">3. Мувики</button>
+        <button class="pill" data-filter="cat-4">4. Реакции</button>
+        <button class="pill" data-filter="cat-5">5. Угарные моменты</button>
+        <button class="pill" data-filter="cat-6">6. Длинные</button>
+      </div>
+
+      <!-- Accounts Table View -->
+      <div class="table-responsive" id="accounts-table-wrap">
+        <table class="accounts-table" id="accounts-table">
+          <thead>
+            <tr>
+              <th class="sortable" data-sort="profile">Профиль / Канал <span class="sort-icon">↕</span></th>
+              <th class="sortable" data-sort="category">Категория <span class="sort-icon">↕</span></th>
+              <th class="sortable" data-sort="status">Статус динамики <span class="sort-icon">↕</span></th>
+              <th class="sortable active-sort" data-sort="views">Просмотры (<span id="table-period-views-label">Всё время</span>) <span class="sort-icon">↓</span></th>
+              <th>Платформы (YT / IG / TT)</th>
+              <th class="sortable" data-sort="today">Выложено (Сегодня / Вчера / Всего) <span class="sort-icon">↕</span></th>
+              <th class="sortable" data-sort="last_pub">Крайняя публикация <span class="sort-icon">↕</span></th>
+              <th>Аудитория</th>
+              <th>Действия</th>
+            </tr>
+          </thead>
+          <tbody id="accounts-tbody">
+            <!-- Injected via app.js -->
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Accounts Cards View (Alternate) -->
+      <div class="accounts-cards-grid hidden" id="accounts-cards-grid">
+        <!-- Injected via app.js -->
+      </div>
+    </section>
+  </main>
+
+  <!-- Modal Detail Viewer for Account -->
+  <div class="modal-overlay hidden" id="detail-modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <div class="modal-title-wrap">
+          <h3 id="modal-profile-title">work46</h3>
+          <span class="badge" id="modal-category-badge">Категория 1</span>
+        </div>
+        <button class="modal-close-btn" id="modal-close-btn">✕</button>
+      </div>
+      <div class="modal-body" id="modal-body">
+        <!-- Content injected dynamically -->
+      </div>
+    </div>
+  </div>
+
+  <!-- PIN Code Lock Screen Modal -->
+  <div class="modal-overlay hidden" id="pin-modal" style="z-index: 9999; backdrop-filter: blur(24px); background: rgba(7, 10, 18, 0.92);">
+    <div class="modal-content" style="max-width: 420px; text-align: center; padding: 36px 28px; border: 1px solid rgba(99, 102, 241, 0.35); box-shadow: 0 10px 40px rgba(0,0,0,0.8), 0 0 30px rgba(99, 102, 241, 0.2);">
+      <div style="width: 64px; height: 64px; margin: 0 auto 18px; border-radius: 50%; background: linear-gradient(135deg, rgba(99,102,241,0.2) 0%, rgba(236,72,153,0.2) 100%); display: flex; align-items: center; justify-content: center; font-size: 28px; border: 1px solid rgba(99,102,241,0.4);">
+        🔒
+      </div>
+      <h2 style="font-size: 20px; font-weight: 800; color: #fff; margin-bottom: 6px;">Закрытый доступ</h2>
+      <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 24px; line-height: 1.4;">
+        Для просмотра аналитики каналов Дениса Рябцева введите PIN-код доступа
+      </p>
+
+      <form id="pin-form" onsubmit="handlePinSubmit(event)">
+        <div style="position: relative; margin-bottom: 16px;">
+          <input type="password" id="pin-input" maxlength="10" placeholder="••••" autocomplete="off" autofocus style="width: 100%; text-align: center; letter-spacing: 10px; font-size: 28px; font-weight: 800; background: rgba(15, 23, 42, 0.9); border: 2px solid rgba(99,102,241,0.4); border-radius: 10px; padding: 12px; color: #fff; outline: none; transition: all 0.2s ease;" />
+        </div>
+        <div id="pin-error" style="color: #f87171; font-size: 13px; margin-bottom: 16px; min-height: 18px;" class="hidden">Неверный PIN-код</div>
+        <button type="submit" class="btn btn-primary" id="pin-submit-btn" style="width: 100%; padding: 12px; font-size: 15px; justify-content: center; font-weight: 700; border-radius: 8px;">
+          Войти в аналитику →
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Share Public Link Modal -->
+  <div class="modal-overlay hidden" id="share-modal">
+    <div class="modal-content" style="max-width: 560px; padding: 28px;">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+        <h3 style="font-size: 18px; font-weight: 800; color: #fff; display: flex; align-items: center; gap: 8px;">
+          <span>🔗</span> Публичная ссылка на статистику
+        </h3>
+        <button class="modal-close-btn" onclick="closeShareModal()">✕</button>
+      </div>
+      <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 18px; line-height: 1.4;">
+        Сервис работает <b>24/7 в фоне</b>. Ссылка доступна с любого устройства (смартфоны, ПК) в России без VPN.
+      </p>
+
+      <!-- 1. Primary Link (24/7 Cloud CDN - 100% working in RU without VPN) -->
+      <div style="margin-bottom: 16px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+          <label style="font-size: 11px; font-weight: 700; text-transform: uppercase; color: #34d399;">⭐ ПОСТОЯННАЯ ССЫЛКА 24/7 (как CRM — работает всегда, без VPN):</label>
+          <span style="font-size: 11px; color: #34d399; font-weight: 600;">Cloud CDN · Весь мир</span>
+        </div>
+        <div style="display: flex; gap: 8px;">
+          <input type="text" id="share-primary-input" readonly placeholder="Получение постоянной ссылки 24/7..." style="flex: 1; background: rgba(15,23,42,0.9); border: 1px solid #10b981; border-radius: 6px; padding: 10px 12px; color: #34d399; font-size: 13px; font-weight: 700; font-family: monospace;" />
+          <button class="btn btn-primary" style="padding: 0 16px; font-weight: 700;" onclick="copyInputText('share-primary-input')">Копировать</button>
+        </div>
+        <div style="font-size: 11px; color: var(--text-dim); margin-top: 4px;">
+          ✓ Не зависит от туннелей и перезагрузок ПК. Авто-вход по PIN включён, открывается мгновенно без VPN.
+        </div>
+      </div>
+
+      <!-- 2. Direct Tunnel Mirror -->
+      <div style="margin-bottom: 14px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+          <label style="font-size: 11px; font-weight: 700; text-transform: uppercase; color: #38bdf8;">⚡ Прямое зеркало с ПК (резервный туннель):</label>
+          <span style="font-size: 11px; color: #38bdf8;">Live Tunnel</span>
+        </div>
+        <div style="display: flex; gap: 8px;">
+          <input type="text" id="share-cf-input" readonly placeholder="Опциональное зеркало..." style="flex: 1; background: rgba(15,23,42,0.8); border: 1px solid var(--border-subtle); border-radius: 6px; padding: 8px 12px; color: #38bdf8; font-size: 12px; font-family: monospace;" />
+          <button class="btn btn-secondary" onclick="copyInputText('share-cf-input')">Копировать</button>
+        </div>
+      </div>
+
+      <!-- 3. Local Link -->
+      <div style="margin-bottom: 18px;">
+        <label style="display: block; font-size: 11px; font-weight: 700; text-transform: uppercase; color: var(--text-dim); margin-bottom: 4px;">Локальный доступ на этом ПК:</label>
+        <div style="display: flex; gap: 8px;">
+          <input type="text" id="share-local-input" readonly value="http://127.0.0.1:5000/denis-stats/?pin=2850" style="flex: 1; background: rgba(15,23,42,0.8); border: 1px solid var(--border-subtle); border-radius: 6px; padding: 8px 12px; color: var(--text-muted); font-size: 12px; font-family: monospace;" />
+          <button class="btn btn-secondary" onclick="copyInputText('share-local-input')">Копировать</button>
+        </div>
+      </div>
+
+      <div style="padding: 12px 14px; background: rgba(99,102,241,0.1); border: 1px solid rgba(99,102,241,0.3); border-radius: 8px; font-size: 12px; color: #c084fc; display: flex; justify-content: space-between; align-items: center;">
+        <span>🔑 <b>PIN-код:</b> <span style="font-family: monospace; font-size: 15px; font-weight: 800; color: #fff; background: rgba(0,0,0,0.3); padding: 2px 8px; border-radius: 4px;">2850</span> (вшит в ссылку)</span>
+        <span style="font-size: 11px; color: #34d399; background: rgba(16,185,129,0.2); padding: 3px 8px; border-radius: 12px; font-weight: 700;">🟢 24/7 Сервис активен</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Notification -->
+  <div class="toast hidden" id="toast"></div>
+
+  <footer class="footer">
+    <div class="footer-container">
+      <p>Центр мониторинга и статистики · Денис Рябцев &copy; 2026</p>
+      <p class="footer-meta">Сквозной трекинг YouTube Shorts, TikTok & Instagram Reels</p>
+    </div>
+  </footer>
+
+  <script src="./app.js?v=2.0"></script>
+</body>
+</html>
